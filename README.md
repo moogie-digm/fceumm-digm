@@ -1,5 +1,7 @@
 Clone fork of https://github.com/libretro/libretro-fceumm
 
+---
+
 > Targeting HLE LuaJit detour hacking and other novelties; wildly divergent and not expected to merge upstream at all
 
 - Being fast ansi C and barebones, ideal target project
@@ -8,6 +10,8 @@ Clone fork of https://github.com/libretro/libretro-fceumm
 
 - Potential bugfixes to upstream problems will be posted as separate branches, and as discussion tabs
 
+---
+
 > Main special feature is pre-pc and post-pc detour hooking ==> bypass code caves hunting
 
 - A blend of realistic hardware hacks, virtual Lua co-processor and stuff not possible on console
@@ -15,3 +19,9 @@ Clone fork of https://github.com/libretro/libretro-fceumm
 - Probably more useful either as rapid prototyping hacks, or ignoring real life friction like space restriction and tight cycle timing
 
 - This repo only covers the actual emulator side, and not the other Luajit bridge or real-life Lua examples
+
+---
+
+Upstream bugfixes:
+- [Copy h-scroll at dot 257](https://github.com/moogie-digm/fceumm-digm/discussions/2)
+- [Emphasis, Greyscale mid-line writes](https://github.com/moogie-digm/fceumm-digm/discussions/1)
