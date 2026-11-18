@@ -9,3 +9,5 @@ Speed is decent even with detours atm, as most internals are ffi exposed to Lua 
 Main special feature is pre-pc and post-pc detour hooking ==> bypass code caves hunting
 
 Probably more useful either as rapid prototyping hacks, or ignoring real life friction like space restriction and tight cycle timing
+
+Potential bugfixes to upstream problems will be posted as separate branches, and as discussion tabs
