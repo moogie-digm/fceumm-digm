@@ -61,7 +61,7 @@ static void FASTAPASS(1) RefreshLine(int lastpixel);
 static void RefreshSprites(void);
 static void CopySprites(uint8_t *target);
 
-static void Fixit1(void);
+static void IncYScroll(void);
 static uint32_t ppulut1[256];
 static uint32_t ppulut2[256];
 static uint32_t ppulut3[128];
@@ -413,7 +413,7 @@ static void CheckSpriteHit(int p);
 static void EndRL(void) {
 	RefreshLine(272);
 	if (tofix)
-		Fixit1();
+		IncYScroll();
 	CheckSpriteHit(272);
 	Pline = 0;
 }
@@ -490,7 +490,7 @@ static void FASTAPASS(1) RefreshLine(int lastpixel) {
 
 		#define TOFIXNUM (272 - 0x4)
 		if (lastpixel >= TOFIXNUM && tofix) {
-			Fixit1();
+			IncYScroll();
 			tofix = 0;
 		}
 
@@ -627,7 +627,7 @@ static void FASTAPASS(1) RefreshLine(int lastpixel) {
 	firsttile = lasttile;
 }
 
-static INLINE void Fixit2(void) {
+static INLINE void CopyHScroll(void) {
 	if (ScreenON || SpriteON) {
 		uint32_t rad = RefreshAddr;
 		rad &= 0xFBE0;
@@ -636,7 +636,7 @@ static INLINE void Fixit2(void) {
 	}
 }
 
-static void Fixit1(void) {
+static void IncYScroll(void) {
 	if (ScreenON || SpriteON) {
 		uint32_t rad = RefreshAddr;
 
@@ -737,15 +737,15 @@ static void DoLine(void)
 		FetchSpriteData();
 
 	if (GameHBIRQHook && (ScreenON || SpriteON) && ((PPU[0] & 0x38) != 0x18)) {
-		X6502_Run(6);
-		Fixit2();
-		X6502_Run(4);
+		X6502_Run(1);
+		CopyHScroll();	/* dot 257 */
+		X6502_Run(9);	/* dot 266 = MMC3 */
 		GameHBIRQHook();
 		X6502_Run(85 - 16 - 10);
 	} else {
-		X6502_Run(6);	/* Tried 65, caused problems with Slalom(maybe others) */
-		Fixit2();
-		X6502_Run(85 - 6 - 16);
+		X6502_Run(1);
+		CopyHScroll();
+		X6502_Run(85 - 1 - 16);
 
 		/* A semi-hack for Star Trek: 25th Anniversary */
 		if (GameHBIRQHook && (ScreenON || SpriteON) && ((PPU[0] & 0x38) != 0x18))
@@ -1383,4 +1383,22 @@ SFORMAT FCEUPPU_STATEINFO[] = {
 void FCEUPPU_SaveState(void) {
 	TempAddrT = TempAddr;
 	RefreshAddrT = RefreshAddr;
+}
+
+int PPU_GetCycle(void) {
+	int dot = GETLASTPIXEL - 16;
+	if (dot < 0)
+		dot += 341;
+	return dot;
+}
+
+int PPU_GetScanline(void) {
+	int dot = GETLASTPIXEL - 16;
+	int sl = scanline;
+	if (dot < 0) {
+		sl--;
+		if (sl < 0)
+			sl = (int)totalscanlines - 1; /* wraps scanline 0 dot -16..-1 to pre-render line */
+	}
+	return sl;
 }
