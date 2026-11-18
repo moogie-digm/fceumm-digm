@@ -11,3 +11,5 @@ Main special feature is pre-pc and post-pc detour hooking ==> bypass code caves 
 Probably more useful either as rapid prototyping hacks, or ignoring real life friction like space restriction and tight cycle timing
 
 Potential bugfixes to upstream problems will be posted as separate branches, and as discussion tabs
+
+This repo only covers the actual emulator side, and not the other Luajit bridge or real-life Lua examples
