@@ -26,6 +26,11 @@
 #include "fceu.h"
 #include "sound.h"
 
+#ifdef LUAJIT
+#include "luajit/l_emu.h"
+#include "luajit/l_cpu.h"
+#endif
+
 X6502 X;
 
 uint32_t timestamp;
@@ -421,42 +426,50 @@ void X6502_LoadState(void) {
 	x6502_sound_lag = timestamp - x6502_sound_ts_state;
 }
 
+#ifdef LUAJIT
+int X6502_Run_slice(int step);
+#endif
+
 void X6502_Run(int32_t cycles)
 {
-	#define RdRAM RdRAMFast
-	#define WrRAM WrRAMFast
-	#define RdMem RdMemNorm
-	#define WrMem WrMemNorm
-
-	#if (defined(C80x86) && defined(__GNUC__))
-	/* Gives a nice little speed boost. */
-	register uint16_t pbackus asm ("edi");
-	#else
-	uint16_t pbackus;
-	#endif
-	/* overclocked only changes between runs; a local stays in a register
-	 * across the handler calls the global has to be reloaded after. */
-	const unsigned run_overclocked = overclocked;
-	/* timestamp at the last opcode fetch, and where the run ends:
-	 * X.count > 0 while timestamp < end_ts. */
-	uint32_t hook_ts = x6502_hook_ts;
-	int32_t end_ts;
-
-	#undef ADDCYC
-	#define ADDCYC(x) ADDCYC_OC(x, run_overclocked)
-
-	pbackus = _PC;
-
-	#undef _PC
-	#define _PC pbackus
-
 	if (PAL)
 		cycles *= 15;	/* 15*4=60 */
 	else
 		cycles *= 16;	/* 16*4=64 */
 
 	x6502_count_base = (int32_t)((uint32_t)x6502_count_base + (uint32_t)cycles);
-	end_ts = x6502_count_base > 0 ? (x6502_count_base - 1) / 48 + 1 : 0;
+
+#ifdef LUAJIT
+	if( likely(g_lua) )
+		lua_X6502_Run();
+	else {
+		X6502_Run_slice(0);
+	}
+}
+
+int X6502_Run_slice(int step) {
+#endif
+	#define RdRAM RdRAMFast
+	#define WrRAM WrRAMFast
+	#define RdMem RdMemNorm
+	#define WrMem WrMemNorm
+
+	/* overclocked only changes between runs; a local stays in a register
+	 * across the handler calls the global has to be reloaded after. */
+	const unsigned run_overclocked = overclocked;
+
+	/* timestamp at the last opcode fetch, and where the run ends:
+	 * X.count > 0 while timestamp < end_ts. */
+	uint32_t hook_ts = x6502_hook_ts;
+	int32_t end_ts = x6502_count_base > 0 ? (x6502_count_base - 1) / 48 + 1 : 0;
+
+	#undef ADDCYC
+	#define ADDCYC(x) ADDCYC_OC(x, run_overclocked)
+
+
+#ifdef LUAJIT
+	if( unlikely(step) ) goto lua_step;
+#endif
 
 	while ((int32_t)timestamp < end_ts) {
 		int32_t temp;
@@ -497,44 +510,83 @@ void X6502_Run(int32_t cycles)
 			_IRQlow &= ~(FCEU_IQTEMP);
 			if ((int32_t)timestamp >= end_ts) {
 				_PI = _P;
-				X.PC = pbackus;
 				x6502_hook_ts = hook_ts;
+#ifdef LUAJIT
+				return 1;
+#else
 				return;
-			}	/* Should increase accuracy without a
-				 * major speed hit.
-				 */
+#endif
+			}
 		}
+
+#ifdef LUAJIT
+		/* pre-detour hook */
+		if( unlikely(pc_hook_break(_PC)) ) {
+			x6502_hook_ts = hook_ts;
+			return 0;
+		}
+
+
+lua_step:
+		/* 1-cycle step = spin loop, same PC */
+		if( unlikely(pc_wait_loop(_PC)) ) {
+			_PI = _P;
+			ADDCYC(1);
+
+			temp = (int32_t)(timestamp - hook_ts);
+			hook_ts = timestamp;
+
+			if (MapIRQHook) MapIRQHook(temp);
+			if (!run_overclocked)
+				FCEU_SoundCPUHook(temp);
+			continue;
+		}
+#endif
+
 
 		_PI = _P;
 		b1 = RdMem(_PC);
 
+
+#ifdef LUAJIT
+		/* 0-cycle fastrom */
+		if( !unlikely(pc_fast_loop(_PC)) ) {
+			ADDCYC(CycTable[b1]);
+		}
+#else
 		ADDCYC(CycTable[b1]);
+#endif
+
 
 		temp = (int32_t)(timestamp - hook_ts);
 		hook_ts = timestamp;
 		if (MapIRQHook) MapIRQHook(temp);
-		if (!run_overclocked) {
-			FCEU_SoundCycles += temp;
-			if (FCEU_SoundCycles >= FCEU_SoundNext) {
-				temp = FCEU_SoundCycles;
-				FCEU_SoundCycles = 0;
-				FCEU_SoundCPUHook(temp);
-			}
-		}
+		if (!run_overclocked)
+			FCEU_SoundCPUHook(temp);
 		_PC++;
 		if (encryptOpcodes)
 			b1 = DecryptOpcode(b1);
 		switch (b1) {
 			#include "ops.h"
 		}
+
+#ifdef LUAJIT
+		/* post-hook detour */
+		if( unlikely(step) ) {
+			x6502_hook_ts = hook_ts;
+			return 0;
+		}
+#endif
 	}
 
-	#undef _PC
-	#define _PC X.PC
-	_PC = pbackus;
 	x6502_hook_ts = hook_ts;
+
 	#undef RdRAM
 	#undef WrRAM
 	#undef ADDCYC
 	#define ADDCYC(x) ADDCYC_OC(x, overclocked)
+
+#ifdef LUAJIT
+	return 1;
+#endif
 }

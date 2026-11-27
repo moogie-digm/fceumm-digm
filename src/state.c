@@ -41,6 +41,10 @@
 #include "ppu.h"
 #include "video.h"
 
+#ifdef LUAJIT
+#include "luajit/l_state.h"
+#endif
+
 /* Cursor over the caller's buffer: the frontend's savestate buffer is
  * read and written in place, and the cursor lives on the caller's
  * stack. With buf NULL nothing is stored and pos counts the bytes a
@@ -689,6 +693,10 @@ int FCEUSS_Load_Mem(const void *buf, size_t size)
       if (state_host_chunk[x] && !state_host_chunk_seen[x])
          state_host_chunk[x]->absent();
 
+#ifdef LUAJIT
+   lua_load_state();
+#endif
+
    return 1;
 }
 
@@ -734,4 +742,3 @@ void AddExState(void *v, uint32_t s, int type, char *desc)
 void FCEU_DrawSaveStates(uint8_t *XBuf)
 {
 }
-

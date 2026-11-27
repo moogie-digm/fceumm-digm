@@ -50,8 +50,8 @@ uint8_t *MMC5BGVPage[8];
 static uint8_t PRGIsRAM[32];	/* This page is/is not PRG RAM. */
 
 /* 16 are (sort of) reserved for UNIF/iNES and 16 to map other stuff. */
-static int CHRram[32];
-static int PRGram[32];
+int CHRram[32];
+int PRGram[32];
 
 uint8_t *PRGptr[32];
 uint8_t *CHRptr[32];
@@ -78,6 +78,16 @@ uint8_t genieval[3];
 uint8_t geniech[3];
 
 uint32_t genieaddr[3];
+
+// FCEUX
+int GetRomAddress(int A){
+	int result;
+	if(GameInfo && GameInfo->type == GIT_FDS) return -1;
+	if((A < 0x6000) || (A > 0xFFFF))return -1;
+	result = &Page[A>>11][A]-PRGptr[0];
+	if((result > (int)(PRGsize[0])) || (result < 0))return -1;
+	else return result;
+}
 
 static INLINE void setpageptr(int s, uint32_t A, uint8_t *p, int ram) {
 	uint32_t AB = A >> 11;

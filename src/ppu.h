@@ -23,4 +23,10 @@ void FCEUPPU_LoadState(int version);
 extern int scanline;
 extern uint8_t PPU[4];
 
+extern uint8_t ppu_frame_has_tint;
+extern uint8_t ppu_frame_tint_lines[240];
+
+extern int PPU_GetCycle();
+extern int PPU_GetScanline();
+
 #endif
