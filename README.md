@@ -1,4 +1,5 @@
 luajit hle hacking fork of https://github.com/libretro/libretro-fceumm
+- coprocessor, post-framebuffer
 
 ---
 
